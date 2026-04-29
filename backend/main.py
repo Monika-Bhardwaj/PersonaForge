@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 
 # Load .env from project root (works whether run from backend/ or root)
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))  # fallback
 
 logging.basicConfig(level=logging.INFO)
 

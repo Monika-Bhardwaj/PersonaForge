@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from schemas import ChatRequest
 from utils import get_system_prompt
-from google import genai
+from groq import Groq
 import logging
 
 router = APIRouter()
@@ -15,37 +15,32 @@ from rate_limiter import limiter
 @router.post("/chat")
 @limiter.limit("10/minute")
 async def chat_endpoint(request: Request, chat_req: ChatRequest):
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
+        raise HTTPException(status_code=500, detail="GROQ_API_KEY not configured")
 
-    client = genai.Client(api_key=api_key)
+    client = Groq(api_key=api_key)
     system_prompt = get_system_prompt(chat_req.persona)
 
-    # Build contents list from message history (exclude system role)
-    contents = []
+    messages = [{"role": "system", "content": system_prompt}]
     for msg in chat_req.messages:
-        role = "user" if msg.role == "user" else "model"
-        contents.append({"role": role, "parts": [{"text": msg.content}]})
-
-    from google.genai import types
+        messages.append({"role": msg.role, "content": msg.content})
 
     async def event_generator():
         try:
-            response = client.models.generate_content_stream(
-                model="gemini-2.0-flash",
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                    max_output_tokens=512,
-                    temperature=0.7,
-                ),
+            stream = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=messages,
+                stream=True,
+                max_tokens=512,
+                temperature=0.7,
             )
-            for chunk in response:
-                if chunk.text:
-                    yield f"data: {json.dumps({'content': chunk.text})}\n\n"
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    yield f"data: {json.dumps({'content': delta})}\n\n"
         except Exception as e:
-            logger.error(f"Gemini API Error: {str(e)}")
+            logger.error(f"Groq API Error: {str(e)}")
             yield f"data: {json.dumps({'error': '😓 Oops, something went wrong. Please try again.'})}\n\n"
         finally:
             yield "data: [DONE]\n\n"

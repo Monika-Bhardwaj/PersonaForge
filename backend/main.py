@@ -15,9 +15,10 @@ from chat import router as chat_router
 from rate_limiter import limiter
 from dotenv import load_dotenv
 
-# Load .env from project root (works whether run from backend/ or root)
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
-load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))  # fallback
+# Load .env — try multiple locations to work from any cwd
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))  # project root
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))        # backend/
+load_dotenv(".env")                                                   # cwd fallback
 
 logging.basicConfig(level=logging.INFO)
 
